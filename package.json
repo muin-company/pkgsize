@@ -1,0 +1,44 @@
+{
+  "name": "pkgsize",
+  "version": "1.0.0",
+  "description": "Check npm package sizes before you install. Compare alternatives, stay lean.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "pkgsize": "./dist/cli.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test dist/*.test.js",
+    "prepublishOnly": "npm run build",
+    "dev": "tsc && node dist/cli.js"
+  },
+  "keywords": [
+    "npm",
+    "package",
+    "size",
+    "bundle",
+    "cli",
+    "dependencies"
+  ],
+  "author": "muin-company",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/muin-company/pkgsize.git"
+  },
+  "bugs": {
+    "url": "https://github.com/muin-company/pkgsize/issues"
+  },
+  "homepage": "https://github.com/muin-company/pkgsize#readme",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
