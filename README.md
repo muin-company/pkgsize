@@ -13,6 +13,7 @@ Installing dependencies without checking their size is like buying a car without
 
 ✅ **Fast** — Uses npm registry API, no installation required  
 ✅ **Compare** — Check multiple packages side-by-side  
+✅ **Mobile Impact** — See download time on 3G/4G networks  
 ✅ **Zero dependencies** — Uses Node.js built-in `fetch`  
 ✅ **Color-coded** — Green for small, yellow for medium, red for large  
 ✅ **JSON output** — Easy to integrate with other tools  
@@ -134,7 +135,29 @@ Recommendation:
 
 ---
 
-### Example 5: JSON Output for CI Integration
+### Example 5: Mobile Impact (3G/4G Download Time)
+
+**Scenario:** You're building a mobile-first app and need to know real-world download times.
+
+```bash
+$ pkgsize react vue angular --mobile
+
+Package     Version   Tarball        3G          4G          
+─────────────────────────────────────────────────────────────
+react       19.2.4    55.9 KB        447ms       44ms        
+vue         3.5.27    796.8 KB       6.4s        622ms       
+angular     1.8.3     680.3 KB       5.4s        531ms       
+
+💡 Smallest: react (167.6 KB)
+```
+
+**Result:** React loads in under 50ms on 4G, while Vue takes 600ms — matters for first paint!
+
+**Note:** Times are for tarball download only (not unpacking/parsing). 3G = 1 Mbps, 4G = 10 Mbps.
+
+---
+
+### Example 6: JSON Output for CI Integration
 
 **Scenario:** You want to fail CI if dependencies exceed size limits.
 

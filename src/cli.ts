@@ -7,6 +7,7 @@ const args = process.argv.slice(2);
 
 // Parse flags
 const jsonOutput = args.includes('--json');
+const mobileView = args.includes('--mobile');
 const packages = args.filter(arg => !arg.startsWith('--'));
 
 // Show help
@@ -17,15 +18,18 @@ pkgsize - Check npm package sizes before you install
 Usage:
   pkgsize <package> [<package2> ...]    Check one or more packages
   pkgsize <package> --json              Output as JSON
+  pkgsize <package> --mobile            Show download time on 3G/4G
 
 Examples:
   pkgsize lodash                        Check lodash size
   pkgsize lodash ramda underscore       Compare alternatives
   pkgsize express --json                Get JSON output
+  pkgsize react --mobile                Show mobile download time
 
 Options:
-  --json    Output as JSON
-  --help    Show this help message
+  --json     Output as JSON
+  --mobile   Show download time on 3G/4G networks
+  --help     Show this help message
 `);
   process.exit(0);
 }
@@ -38,7 +42,7 @@ Options:
     if (jsonOutput) {
       printJson(results);
     } else {
-      printTable(results);
+      printTable(results, { mobile: mobileView });
     }
 
     // Exit with error if any package failed

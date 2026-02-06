@@ -38,9 +38,13 @@ export async function fetchPackageInfo(packageName: string): Promise<PackageInfo
       const contentLength = tarballResponse.headers.get('content-length');
       if (contentLength) {
         tarballSize = parseInt(contentLength, 10);
+      } else {
+        // Content-length not available, estimate from unpacked size (typical compression ratio ~3:1)
+        tarballSize = Math.round((versionData.dist.unpackedSize || 0) / 3);
       }
-    } catch {
-      // Tarball size fetch failed, continue with 0
+    } catch (err) {
+      // Tarball size fetch failed, estimate from unpacked size
+      tarballSize = Math.round((versionData.dist.unpackedSize || 0) / 3);
     }
 
     return {
