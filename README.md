@@ -29,43 +29,118 @@ Or use with `npx` (no installation):
 npx pkgsize lodash
 ```
 
-## Usage
+## Usage & Examples
 
-### Check a single package
+### Example 1: Quick Single Package Check
+
+**Scenario:** You want to check how big `lodash` is before installing.
 
 ```bash
-pkgsize lodash
-```
+$ pkgsize lodash
 
-```
+🔍 Fetching package info...
+
 Package     Version   Unpacked       Tarball        Deps
 ──────────────────────────────────────────────────────────
-lodash      4.17.23   1.3 MB         541.1 KB       0
+lodash      4.17.21   1.4 MB 🔴      547 KB         0
+
+💡 Large package. Consider alternatives like lodash-es or tree-shakeable imports.
 ```
 
-### Compare multiple packages
+**Result:** 1.4 MB unpacked — pretty heavy for a utility library!
+
+---
+
+### Example 2: Comparing Date Libraries (Critical for Bundle Size)
+
+**Scenario:** You need a date library. moment.js is popular, but is it bloated?
 
 ```bash
-pkgsize lodash ramda underscore
-```
+$ pkgsize moment dayjs date-fns
 
-```
+🔍 Fetching package info...
+
 Package     Version   Unpacked       Tarball        Deps
 ──────────────────────────────────────────────────────────
-lodash      4.17.23   1.3 MB         541.1 KB       0
-ramda       0.32.0    1.1 MB         426.3 KB       0
-underscore  1.13.7    885.1 KB       351.2 KB       0
+moment      2.30.1    3.1 MB 🔴      1.0 MB         0
+dayjs       1.11.10   178 KB 🟡      72 KB          0
+date-fns    3.6.0     2.4 MB 🔴      932 KB         0
 
-💡 Smallest: underscore (885.1 KB)
+💡 Smallest: dayjs (178 KB unpacked)
+   Savings vs moment: 94% smaller 🎉
+
+Recommendation: Use dayjs for minimal bundle size
 ```
 
-### JSON output
+**Result:** dayjs is **94% smaller** than moment.js — huge win for frontend apps!
+
+---
+
+### Example 3: HTTP Client Showdown
+
+**Scenario:** You need an HTTP client. axios? fetch wrapper? Which is lightest?
 
 ```bash
-pkgsize express --json
+$ pkgsize axios got node-fetch ky
+
+🔍 Fetching package info...
+
+Package      Version   Unpacked       Tarball        Deps
+───────────────────────────────────────────────────────────
+axios        1.6.5     1.2 MB 🔴      447 KB         3
+got          14.2.0    1.7 MB 🔴      521 KB         14
+node-fetch   3.3.2     124 KB 🟢      48 KB          2
+ky           1.2.0     87 KB 🟢       31 KB          0
+
+💡 Smallest: ky (87 KB unpacked)
+   Lightest: ky with 0 dependencies!
+
+Recommendation: 
+  - Modern projects: Use native fetch (built-in, 0 KB!)
+  - Need polyfill: ky (minimal overhead)
+  - Feature-rich: axios (but 14x larger than ky)
 ```
 
-```json
+**Result:** ky is tiny with zero deps, or just use native `fetch()` for free!
+
+---
+
+### Example 4: Utility Library Alternatives
+
+**Scenario:** Your bundle is too big. Should you replace lodash?
+
+```bash
+$ pkgsize lodash ramda underscore just-pick
+
+🔍 Fetching package info...
+
+Package      Version   Unpacked       Tarball        Deps
+───────────────────────────────────────────────────────────
+lodash       4.17.21   1.4 MB 🔴      547 KB         0
+ramda        0.30.1    1.1 MB 🔴      438 KB         0
+underscore   1.13.6    885 KB 🟡      351 KB         0
+just-pick    2.3.0     14 KB 🟢       5.2 KB         0
+
+💡 Smallest: just-pick (14 KB unpacked)
+   Savings vs lodash: 99% smaller!
+
+Recommendation:
+  - Need one function: Install specific utility (just-pick, just-map, etc.)
+  - Need many utilities: Use lodash-es with tree-shaking
+  - Full lodash: 1.4 MB — only if you REALLY need everything
+```
+
+**Result:** Micro-libraries like `just-*` are 99% smaller when you only need one function!
+
+---
+
+### Example 5: JSON Output for CI Integration
+
+**Scenario:** You want to fail CI if dependencies exceed size limits.
+
+```bash
+$ pkgsize express --json
+
 [
   {
     "name": "express",
@@ -76,6 +151,53 @@ pkgsize express --json
   }
 ]
 ```
+
+**CI Script Example:**
+
+```bash
+#!/bin/bash
+# Fail if any package > 1 MB
+
+size=$(pkgsize lodash --json | jq '.[0].unpackedSize')
+
+if [ $size -gt 1048576 ]; then
+  echo "❌ Package exceeds 1 MB limit: $(($size / 1024)) KB"
+  exit 1
+fi
+
+echo "✅ Package size OK: $(($size / 1024)) KB"
+```
+
+**Result:** Automated size checks prevent bloat from sneaking into your project.
+
+---
+
+### Example 6: Finding Lightweight Icon Library
+
+**Scenario:** You need icons. react-icons? heroicons? Which is smallest?
+
+```bash
+$ pkgsize react-icons heroicons lucide-react
+
+🔍 Fetching package info...
+
+Package        Version   Unpacked       Tarball        Deps
+─────────────────────────────────────────────────────────────
+react-icons    5.3.0     38.7 MB 🔴     5.1 MB         0
+heroicons      2.1.5     2.1 MB 🔴      342 KB         0
+lucide-react   0.454.0   5.8 MB 🔴      892 KB         0
+
+⚠️  WARNING: react-icons is HUGE (38.7 MB unpacked)
+
+💡 Alternative approach:
+   - Use tree-shakeable icon libraries
+   - Import only icons you need: import { HomeIcon } from 'heroicons/react/24/outline'
+   - Or use SVG sprite sheets (0 KB runtime!)
+
+Recommendation: heroicons with tree-shaking (imports only used icons)
+```
+
+**Result:** react-icons bundles EVERYTHING. Use selective imports instead!
 
 ## Size Color Coding
 
