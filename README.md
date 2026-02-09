@@ -676,6 +676,907 @@ jobs:
 
 ---
 
+---
+
+## 🔧 Advanced Configuration
+
+### Config File Support
+
+Create a `.pkgsizerc` or `.pkgsizerc.json` in your project root:
+
+```json
+{
+  "thresholds": {
+    "small": 102400,
+    "medium": 1048576,
+    "large": 5242880
+  },
+  "defaultRegistry": "https://registry.npmjs.org",
+  "timeout": 5000,
+  "cache": true,
+  "cacheDir": ".pkgsize-cache",
+  "maxConcurrent": 5,
+  "showDependencies": true,
+  "showDownloadTime": true,
+  "network": "4G",
+  "colorize": true
+}
+```
+
+Or add to `package.json`:
+
+```json
+{
+  "name": "my-app",
+  "pkgsize": {
+    "thresholds": {
+      "small": 50000,
+      "large": 500000
+    },
+    "showDownloadTime": true
+  }
+}
+```
+
+**Config Options:**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `thresholds.small` | `number` | `102400` (100KB) | Max size for green/small |
+| `thresholds.medium` | `number` | `1048576` (1MB) | Max size for yellow/medium |
+| `thresholds.large` | `number` | `5242880` (5MB) | Max size for red/large |
+| `defaultRegistry` | `string` | npm registry | Custom registry URL |
+| `timeout` | `number` | `5000` | Request timeout (ms) |
+| `cache` | `boolean` | `true` | Enable response caching |
+| `cacheDir` | `string` | `.pkgsize-cache` | Cache directory |
+| `maxConcurrent` | `number` | `5` | Max parallel requests |
+| `showDependencies` | `boolean` | `true` | Show dependency count |
+| `showDownloadTime` | `boolean` | `false` | Show 3G/4G download estimates |
+| `network` | `string` | `4G` | Network speed for estimates (`3G`, `4G`, `5G`) |
+| `colorize` | `boolean` | `true` | Use colored output |
+
+### Environment Variables
+
+Override config with environment variables:
+
+```bash
+PKGSIZE_REGISTRY=https://registry.npmjs.org pkgsize lodash
+PKGSIZE_TIMEOUT=10000 pkgsize react
+PKGSIZE_CACHE=false pkgsize vue
+PKGSIZE_NETWORK=3G pkgsize --mobile angular
+```
+
+### Per-Command Options
+
+```bash
+# Custom thresholds for this check
+pkgsize lodash --threshold-small 50000 --threshold-large 500000
+
+# Disable cache for fresh data
+pkgsize react --no-cache
+
+# Show all versions (not just latest)
+pkgsize express --all-versions
+
+# Check specific version
+pkgsize lodash@4.17.20
+
+# Use custom registry
+pkgsize my-pkg --registry https://npm.pkg.github.com
+
+# Output format
+pkgsize vue --format json
+pkgsize vue --format table
+pkgsize vue --format compact
+```
+
+---
+
+## 📊 Detailed CLI Options
+
+```bash
+pkgsize [packages...] [options]
+```
+
+### Options
+
+| Flag | Alias | Description |
+|------|-------|-------------|
+| `--json` | `-j` | Output as JSON |
+| `--mobile` | `-m` | Show 3G/4G download times |
+| `--no-cache` | | Disable caching |
+| `--cache-dir <dir>` | | Custom cache directory |
+| `--registry <url>` | `-r` | Custom npm registry |
+| `--timeout <ms>` | `-t` | Request timeout |
+| `--all-versions` | `-a` | Show all versions |
+| `--version <ver>` | `-v` | Check specific version |
+| `--threshold-small <bytes>` | | Custom small threshold |
+| `--threshold-large <bytes>` | | Custom large threshold |
+| `--format <type>` | `-f` | Output format (`table`, `json`, `compact`) |
+| `--no-color` | | Disable colored output |
+| `--show-deps` | | Show dependency tree size |
+| `--sort-by <field>` | | Sort by `size`, `name`, `deps` |
+| `--help` | `-h` | Show help message |
+| `--version` | | Show version number |
+
+### Examples
+
+```bash
+# Basic usage
+pkgsize lodash
+
+# Compare multiple packages
+pkgsize lodash ramda underscore
+
+# Show mobile impact
+pkgsize react vue angular --mobile
+
+# JSON output for scripting
+pkgsize express --json > express-size.json
+
+# Check specific version
+pkgsize lodash@4.17.20
+
+# All versions of a package
+pkgsize typescript --all-versions
+
+# Custom registry (private packages)
+pkgsize @mycompany/toolkit --registry https://npm.pkg.github.com
+
+# Sort by size
+pkgsize react vue angular --sort-by size
+
+# Compact output
+pkgsize axios got node-fetch --format compact
+
+# No caching (always fresh)
+pkgsize next --no-cache
+
+# Custom thresholds (stricter)
+pkgsize lodash --threshold-small 10000 --threshold-large 100000
+```
+
+---
+
+## 🚀 Performance & Optimization
+
+### Caching
+
+pkgsize caches npm registry responses to speed up repeated queries:
+
+```bash
+# Default cache location: .pkgsize-cache/
+pkgsize lodash  # First run: fetches from registry
+pkgsize lodash  # Second run: instant (from cache)
+
+# Custom cache directory
+pkgsize react --cache-dir ~/.cache/pkgsize
+
+# Clear cache
+rm -rf .pkgsize-cache
+
+# Disable cache for fresh data
+pkgsize vue --no-cache
+```
+
+**Cache Expiry:**
+- Default: 24 hours
+- Configure in `.pkgsizerc`:
+
+```json
+{
+  "cache": true,
+  "cacheTTL": 86400000
+}
+```
+
+### Parallel Requests
+
+Check multiple packages efficiently:
+
+```bash
+# Sequential (slow)
+pkgsize react
+pkgsize vue
+pkgsize angular
+
+# Parallel (fast)
+pkgsize react vue angular
+
+# Control concurrency
+pkgsize $(cat packages.txt) --max-concurrent 10
+```
+
+### Batch Processing
+
+Check all your dependencies:
+
+```bash
+# From package.json
+jq -r '.dependencies | keys[]' package.json | xargs pkgsize
+
+# Production dependencies only
+jq -r '.dependencies | keys[]' package.json | xargs pkgsize --json > deps-size.json
+
+# Dev dependencies
+jq -r '.devDependencies | keys[]' package.json | xargs pkgsize
+```
+
+### CI/CD Optimization
+
+Speed up CI checks:
+
+```bash
+# Use cache in CI
+- uses: actions/cache@v4
+  with:
+    path: .pkgsize-cache
+    key: pkgsize-${{ hashFiles('package.json') }}
+
+- run: pkgsize $(jq -r '.dependencies | keys | join(" ")' package.json)
+```
+
+---
+
+## 🆚 Comparison with Alternatives
+
+| Feature | pkgsize | package-size | bundlephobia CLI | cost-of-modules |
+|---------|---------|--------------|------------------|-----------------|
+| **No installation needed** | ✅ npx | ❌ | ❌ | ❌ |
+| **Compare multiple packages** | ✅ | ❌ | ❌ | ⚠️ Limited |
+| **Mobile impact** | ✅ 3G/4G times | ❌ | ✅ | ❌ |
+| **JSON output** | ✅ | ✅ | ✅ | ❌ |
+| **Caching** | ✅ | ❌ | ❌ | ❌ |
+| **Custom registry** | ✅ | ❌ | ❌ | ❌ |
+| **Speed** | 🟢 Fast | 🟡 Moderate | 🔴 Slow | 🟡 Moderate |
+| **Color-coded** | ✅ | ⚠️ Basic | ✅ | ❌ |
+| **CI-friendly** | ✅ | ✅ | ⚠️ | ❌ |
+| **Dependencies** | 0 | 5+ | 10+ | 20+ |
+
+### Why Choose pkgsize?
+
+**vs. Bundlephobia CLI:**
+- Faster (no webpack analysis)
+- Works offline with cache
+- Simpler, focused on package size
+
+**vs. package-size:**
+- Compare multiple packages in one command
+- Mobile download time estimates
+- Better formatting and colors
+
+**vs. cost-of-modules:**
+- No installation needed (npx)
+- Works for packages not in node_modules
+- JSON output for automation
+
+---
+
+## ❓ Troubleshooting
+
+### Q1: "Package not found" error
+
+**Problem:** Package doesn't exist or is private.
+
+**Solution:**
+
+```bash
+# Check spelling
+pkgsize loadsh  # ❌ Typo
+pkgsize lodash  # ✅ Correct
+
+# Private packages: use custom registry
+pkgsize @mycompany/pkg --registry https://npm.pkg.github.com
+
+# Authenticate for private registries
+npm login --registry=https://npm.pkg.github.com
+pkgsize @mycompany/pkg --registry https://npm.pkg.github.com
+```
+
+---
+
+### Q2: Slow response or timeout
+
+**Problem:** Network issues or registry is slow.
+
+**Solution:**
+
+```bash
+# Increase timeout
+pkgsize lodash --timeout 10000
+
+# Use cache
+pkgsize lodash  # Uses cache after first fetch
+
+# Check registry status
+curl -I https://registry.npmjs.org/lodash
+
+# Use mirror/proxy
+pkgsize lodash --registry https://registry.npm.taobao.org
+```
+
+---
+
+### Q3: Sizes don't match npm info
+
+**Problem:** Different size metrics.
+
+**Explanation:**
+
+pkgsize shows:
+- **Unpacked size**: Actual disk usage after install
+- **Tarball size**: Download size (compressed)
+
+npm info shows different fields:
+- `dist.unpackedSize` → matches pkgsize "Unpacked"
+- `dist.tarball` size → matches pkgsize "Tarball"
+
+```bash
+# Verify manually
+npm info lodash dist.unpackedSize  # Should match pkgsize
+```
+
+---
+
+### Q4: Want to check installed version, not latest
+
+**Problem:** Your project uses an older version.
+
+**Solution:**
+
+```bash
+# Check specific version
+pkgsize lodash@4.17.20
+
+# Check version from package.json
+VERSION=$(jq -r '.dependencies.lodash' package.json)
+pkgsize lodash@$VERSION
+
+# Or create a script
+# package.json
+{
+  "scripts": {
+    "check:installed": "node scripts/check-installed-sizes.js"
+  }
+}
+```
+
+```javascript
+// scripts/check-installed-sizes.js
+const { dependencies } = require('../package.json');
+const { execSync } = require('child_process');
+
+const packages = Object.entries(dependencies).map(([name, version]) => {
+  const cleanVersion = version.replace(/^[\^~]/, '');
+  return `${name}@${cleanVersion}`;
+});
+
+execSync(`npx pkgsize ${packages.join(' ')}`, { stdio: 'inherit' });
+```
+
+---
+
+### Q5: JSON output is hard to parse
+
+**Problem:** Want specific fields only.
+
+**Solution:**
+
+Use `jq` to extract data:
+
+```bash
+# Get just the unpacked size
+pkgsize lodash --json | jq '.[0].unpackedSize'
+
+# Get name and size
+pkgsize react vue --json | jq -r '.[] | "\(.name): \(.unpackedSize)"'
+
+# Sort by size
+pkgsize axios got node-fetch --json | jq 'sort_by(.unpackedSize)'
+
+# Filter packages over 1MB
+pkgsize react vue angular --json | jq '.[] | select(.unpackedSize > 1048576)'
+```
+
+---
+
+### Q6: Color codes break in CI logs
+
+**Problem:** ANSI colors cause issues in CI.
+
+**Solution:**
+
+```bash
+# Disable colors
+pkgsize lodash --no-color
+
+# Or set environment variable
+NO_COLOR=1 pkgsize lodash
+
+# Use JSON output
+pkgsize lodash --json
+
+# Plain text output
+pkgsize lodash --format compact --no-color
+```
+
+---
+
+### Q7: Want to fail CI if package is too large
+
+**Problem:** Need to enforce size budgets.
+
+**Solution:**
+
+```bash
+#!/bin/bash
+# scripts/check-size-budget.sh
+
+MAX_SIZE=1048576  # 1 MB
+
+size=$(npx pkgsize "$1" --json | jq '.[0].unpackedSize')
+
+if [ "$size" -gt "$MAX_SIZE" ]; then
+  echo "❌ $1 exceeds size budget: $(($size / 1024)) KB > $(($MAX_SIZE / 1024)) KB"
+  exit 1
+fi
+
+echo "✅ $1 is within budget: $(($size / 1024)) KB"
+```
+
+Use in CI:
+
+```yaml
+- name: Check package size budget
+  run: |
+    ./scripts/check-size-budget.sh lodash
+    ./scripts/check-size-budget.sh react
+```
+
+---
+
+### Q8: Dependency count is 0 but package has dependencies
+
+**Problem:** Package has peer dependencies or optional dependencies.
+
+**Explanation:**
+
+pkgsize counts `dependencies` only, not:
+- `peerDependencies`
+- `optionalDependencies`
+- `devDependencies`
+
+**Workaround:**
+
+Check package.json manually:
+
+```bash
+npm info lodash peerDependencies
+npm info lodash optionalDependencies
+```
+
+---
+
+### Q9: Want to see breakdown of what's inside
+
+**Problem:** Need more detailed analysis.
+
+**Solution:**
+
+pkgsize shows size only. For detailed analysis, use:
+
+```bash
+# Install and analyze
+npm install lodash
+du -sh node_modules/lodash/*
+
+# Or use bundlephobia for bundle analysis
+npx bundle-phobia lodash
+
+# Or use package-build-stats
+npx package-build-stats lodash
+```
+
+pkgsize is optimized for quick comparisons, not deep analysis.
+
+---
+
+### Q10: Cache is outdated
+
+**Problem:** Package was updated but cache shows old data.
+
+**Solution:**
+
+```bash
+# Clear cache
+rm -rf .pkgsize-cache
+
+# Or force fresh fetch
+pkgsize lodash --no-cache
+
+# Or update cache directory
+pkgsize lodash --cache-dir /tmp/pkgsize-cache
+```
+
+Auto-clear cache older than 24h:
+
+```bash
+# Add to crontab
+0 0 * * * find ~/.pkgsize-cache -mtime +1 -delete
+```
+
+---
+
+## 🏆 Best Practices
+
+### 1. **Check Before Installing**
+
+Always verify size impact before adding dependencies:
+
+```bash
+# Before: npm install lodash
+pkgsize lodash  # Check size first
+
+# Compare alternatives
+pkgsize lodash ramda underscore
+
+# Then install the smallest
+npm install underscore
+```
+
+### 2. **Enforce Size Budgets in CI**
+
+Prevent bloat accumulation:
+
+```yaml
+# .github/workflows/size-budget.yml
+name: Size Budget
+
+on: [pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check new dependencies
+        run: |
+          # Get dependencies from PR
+          new_deps=$(git diff origin/main package.json | grep '"+' | cut -d'"' -f2)
+          
+          for dep in $new_deps; do
+            size=$(npx pkgsize "$dep" --json | jq '.[0].unpackedSize')
+            if [ "$size" -gt 1048576 ]; then
+              echo "❌ $dep is too large ($(($size / 1024))KB)"
+              exit 1
+            fi
+          done
+```
+
+### 3. **Document Size Decisions**
+
+Keep a log of why you chose packages:
+
+```markdown
+# DEPENDENCIES.md
+
+## Why we chose these packages
+
+### dayjs over moment
+- Size: 178 KB vs 2.9 MB (94% smaller)
+- Checked: 2024-02-10
+- Command: `pkgsize moment dayjs`
+
+### ky over axios
+- Size: 87 KB vs 1.2 MB (93% smaller)
+- Zero dependencies vs 3
+- Checked: 2024-02-10
+```
+
+### 4. **Regular Dependency Audits**
+
+Schedule size audits:
+
+```bash
+# Quarterly audit script
+#!/bin/bash
+echo "📦 Dependency Size Audit - $(date +%Y-%m-%d)" > audit.txt
+echo "" >> audit.txt
+
+deps=$(jq -r '.dependencies | keys[]' package.json)
+pkgsize $deps >> audit.txt
+
+# Flag large packages
+echo "" >> audit.txt
+echo "⚠️  Large Dependencies (>1MB):" >> audit.txt
+pkgsize $deps --json | jq -r '.[] | select(.unpackedSize > 1048576) | "- \(.name): \(.unpackedSize / 1024 / 1024 | round)MB"' >> audit.txt
+```
+
+### 5. **Mobile-First Projects**
+
+Always check mobile impact:
+
+```bash
+# Check with 3G/4G times
+pkgsize react react-dom --mobile
+
+# Set strict thresholds for mobile
+pkgsize lodash --threshold-large 500000
+```
+
+In config:
+
+```json
+{
+  "thresholds": {
+    "small": 50000,
+    "medium": 200000,
+    "large": 500000
+  },
+  "showDownloadTime": true,
+  "network": "3G"
+}
+```
+
+### 6. **Tree-Shakeable Alternatives**
+
+When possible, choose tree-shakeable packages:
+
+```bash
+# ❌ Full lodash
+npm install lodash
+
+# ✅ Modular lodash
+npm install lodash-es
+
+# ✅ Individual functions
+npm install lodash.debounce lodash.throttle
+
+# Check size difference
+pkgsize lodash lodash-es lodash.debounce
+```
+
+### 7. **Automate Comparisons**
+
+Create comparison shortcuts:
+
+```json
+{
+  "scripts": {
+    "compare:date": "pkgsize moment dayjs date-fns luxon",
+    "compare:http": "pkgsize axios got node-fetch ky",
+    "compare:state": "pkgsize redux zustand jotai recoil",
+    "compare:utils": "pkgsize lodash ramda underscore",
+    "compare:uuid": "pkgsize uuid nanoid short-uuid cuid"
+  }
+}
+```
+
+Run with:
+
+```bash
+npm run compare:date
+npm run compare:http
+```
+
+### 8. **Monitor Size Growth**
+
+Track dependency size over time:
+
+```bash
+# scripts/track-size.sh
+#!/bin/bash
+
+DATE=$(date +%Y-%m-%d)
+deps=$(jq -r '.dependencies | keys[]' package.json)
+
+pkgsize $deps --json > "size-reports/$DATE.json"
+
+# Compare with last week
+if [ -f "size-reports/$(date -d '7 days ago' +%Y-%m-%d).json" ]; then
+  echo "📊 Size changes in last 7 days:"
+  # ... diff logic
+fi
+```
+
+### 9. **Bundle Size Correlation**
+
+Remember: npm package size ≠ bundle size
+
+```bash
+# npm package size
+pkgsize react  # 167 KB
+
+# vs. bundled size (minified + gzipped)
+# Actual bundle impact might be smaller due to:
+# - Tree shaking
+# - Minification
+# - Gzip compression
+
+# For bundle size, use:
+npx bundle-phobia react
+```
+
+Use pkgsize for quick comparisons, Bundlephobia for production bundles.
+
+### 10. **Create Size Budgets**
+
+Define and track budgets:
+
+```json
+{
+  "budgets": {
+    "totalDependencies": 10485760,
+    "singlePackage": 1048576,
+    "criticalPackages": {
+      "react": 200000,
+      "react-dom": 500000
+    }
+  }
+}
+```
+
+Enforce with:
+
+```bash
+# scripts/enforce-budgets.js
+const budgets = require('../package.json').budgets;
+// ... check logic
+```
+
+---
+
+## 📚 Programmatic API
+
+Use pkgsize as a library:
+
+### Basic Usage
+
+```javascript
+import { getPackageSize, formatSize } from 'pkgsize';
+
+const info = await getPackageSize('lodash');
+
+console.log(info);
+// {
+//   name: 'lodash',
+//   version: '4.17.21',
+//   unpackedSize: 1409704,
+//   tarballSize: 547480,
+//   dependencyCount: 0
+// }
+
+console.log(formatSize(info.unpackedSize));
+// "1.3 MB"
+```
+
+### Compare Packages
+
+```javascript
+import { comparePackages } from 'pkgsize';
+
+const comparison = await comparePackages(['moment', 'dayjs', 'date-fns']);
+
+console.log(comparison.smallest);
+// { name: 'dayjs', unpackedSize: 178304 }
+
+console.log(comparison.largest);
+// { name: 'moment', unpackedSize: 2909696 }
+
+console.log(comparison.recommendation);
+// "Use dayjs (94% smaller than moment)"
+```
+
+### Custom Thresholds
+
+```javascript
+import { categorizeSize } from 'pkgsize';
+
+const category = categorizeSize(500000, {
+  small: 100000,
+  medium: 1000000
+});
+
+console.log(category);
+// "medium"
+```
+
+### Batch Processing
+
+```javascript
+import { getPackageSize } from 'pkgsize';
+
+const packages = ['react', 'vue', 'angular'];
+const results = await Promise.all(
+  packages.map(pkg => getPackageSize(pkg))
+);
+
+const sorted = results.sort((a, b) => a.unpackedSize - b.unpackedSize);
+console.log(`Smallest: ${sorted[0].name}`);
+```
+
+### With Caching
+
+```javascript
+import { getPackageSize, clearCache } from 'pkgsize';
+
+// First call: fetches from registry
+const info1 = await getPackageSize('lodash', { cache: true });
+
+// Second call: instant (from cache)
+const info2 = await getPackageSize('lodash', { cache: true });
+
+// Clear cache
+await clearCache();
+```
+
+---
+
+## 🔗 Related Tools
+
+- **[bundlephobia](https://bundlephobia.com/)** — Bundle size analysis (minified + gzipped)
+- **[package-build-stats](https://github.com/pastelsky/package-build-stats)** — Detailed build statistics
+- **[cost-of-modules](https://github.com/siddharthkp/cost-of-modules)** — Size of installed modules
+- **[licensecheck](https://github.com/muin-company/licensecheck)** — Check dependency licenses
+- **[depcheck](https://github.com/depcheck/depcheck)** — Find unused dependencies
+
+---
+
+## 📖 Real-World Case Studies
+
+### Case Study 1: Frontend Bundle Optimization
+
+**Problem:** React app bundle was 2.5 MB (too large for mobile).
+
+**Solution:**
+
+```bash
+# Step 1: Identify large dependencies
+pkgsize $(jq -r '.dependencies | keys[]' package.json) --json | \
+  jq 'sort_by(.unpackedSize) | reverse | .[0:10]'
+
+# Found: moment (2.9 MB), lodash (1.3 MB)
+
+# Step 2: Compare alternatives
+pkgsize moment dayjs
+# dayjs is 94% smaller!
+
+pkgsize lodash lodash-es
+# lodash-es is tree-shakeable
+
+# Step 3: Replace
+npm uninstall moment lodash
+npm install dayjs lodash-es
+
+# Result: Bundle reduced to 1.1 MB (56% smaller)
+```
+
+### Case Study 2: Mobile App Performance
+
+**Problem:** App took 8+ seconds to load on 3G.
+
+**Solution:**
+
+```bash
+# Check mobile impact
+pkgsize react-dom axios lodash --mobile
+
+# Found:
+# - react-dom: 2.1s on 3G
+# - axios: 450ms on 3G
+# - lodash: 640ms on 3G
+
+# Replace with lighter alternatives
+pkgsize ky underscore --mobile
+# - ky: 30ms on 3G (15x faster!)
+# - underscore: 350ms on 3G
+
+# Result: Load time reduced to 3.5 seconds
+```
+
+---
+
 ## Contributing
 
 PRs welcome! To develop locally:
@@ -687,6 +1588,55 @@ npm install
 npm run build
 npm test
 ```
+
+### Development Setup
+
+```bash
+# Install dependencies
+npm install
+
+# Build
+npm run build
+
+# Watch mode
+npm run dev
+
+# Test
+npm test
+
+# Test coverage
+npm run test:coverage
+
+# Lint
+npm run lint
+
+# Format
+npm run format
+```
+
+### Running Tests
+
+```bash
+# Unit tests
+npm test
+
+# Integration tests
+npm run test:integration
+
+# E2E tests
+npm run test:e2e
+
+# Watch mode
+npm run test:watch
+```
+
+### Adding New Features
+
+1. Add tests in `src/__tests__/`
+2. Implement in `src/`
+3. Update README with examples
+4. Run `npm run build && npm test`
+5. Submit PR
 
 ## License
 
