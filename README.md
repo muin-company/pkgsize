@@ -1644,5 +1644,839 @@ MIT © [muin-company](https://github.com/muin-company)
 
 ---
 
+## 🚨 Troubleshooting
+
+### Issue: "Package not found"
+
+**Error:**
+```
+❌ Error: Package "my-package" not found in npm registry
+```
+
+**Causes & Solutions:**
+
+**1. Typo in package name**
+```bash
+# Wrong
+pkgsize recat
+
+# Correct
+pkgsize react
+```
+
+**2. Scoped package (missing @)**
+```bash
+# Wrong
+pkgsize muin-company/pkgsize
+
+# Correct
+pkgsize @muin-company/pkgsize
+```
+
+**3. Package is unpublished or private**
+```bash
+# Private packages won't work
+pkgsize @mycompany/internal-tool
+# ❌ 404 Not Found
+
+# Solution: Only works with public npm packages
+```
+
+**4. Network/registry issues**
+```bash
+# Check if npm registry is accessible
+curl -I https://registry.npmjs.org/react
+
+# Try with custom registry
+NPM_REGISTRY=https://registry.yarnpkg.com pkgsize react
+```
+
+---
+
+### Issue: "ENOTFOUND / Network Error"
+
+**Error:**
+```
+❌ Error: getaddrinfo ENOTFOUND registry.npmjs.org
+```
+
+**Causes:**
+- No internet connection
+- Corporate firewall/proxy
+- DNS issues
+
+**Solutions:**
+
+**1. Check internet connection**
+```bash
+ping registry.npmjs.org
+```
+
+**2. Configure proxy**
+```bash
+# Set proxy environment variables
+export HTTP_PROXY=http://proxy.company.com:8080
+export HTTPS_PROXY=http://proxy.company.com:8080
+
+pkgsize react
+```
+
+**3. Use custom registry**
+```bash
+# Use Yarn registry
+export NPM_REGISTRY=https://registry.yarnpkg.com
+pkgsize react
+
+# Or Taobao mirror (China)
+export NPM_REGISTRY=https://registry.npmmirror.com
+pkgsize react
+```
+
+**4. Offline mode (requires cache)**
+```bash
+# If you've checked this package before, use cached data
+pkgsize react --cache
+```
+
+---
+
+### Issue: Size Doesn't Match After Installation
+
+**Problem:** `pkgsize` shows 1 MB, but `node_modules` shows 5 MB.
+
+**Explanation:**
+```
+pkgsize reports:
+- unpackedSize: Package files only (from npm metadata)
+- tarballSize: Compressed download size
+
+node_modules includes:
+- Transitive dependencies (deps of deps)
+- node_modules within node_modules
+- OS-specific files
+```
+
+**Example:**
+```bash
+$ pkgsize express
+
+Package    Version   Unpacked       Tarball        Deps
+──────────────────────────────────────────────────────────
+express    4.19.2    220 KB         91 KB          31
+
+# But after npm install express:
+$ du -sh node_modules/
+5.2M    node_modules/
+
+# Why? Because express has 31 dependencies!
+```
+
+**Solution: Check full dependency tree**
+```bash
+# See all dependencies
+npm ls express
+
+# Calculate total size (MacOS/Linux)
+npm install express
+du -sh node_modules/
+```
+
+---
+
+### Issue: "JSON parse error"
+
+**Error:**
+```
+SyntaxError: Unexpected token < in JSON at position 0
+```
+
+**Cause:** npm registry returned HTML (404 page) instead of JSON.
+
+**Solution:**
+```bash
+# Verify package exists on npm
+npm view <package-name>
+
+# If it exists, registry might be down
+# Try again in a few minutes or use mirror
+export NPM_REGISTRY=https://registry.yarnpkg.com
+pkgsize <package-name>
+```
+
+---
+
+### Issue: Slow Response for Some Packages
+
+**Problem:** Some packages take 5-10 seconds to check.
+
+**Cause:** Large package metadata (many versions/dist-tags).
+
+**Example:**
+```bash
+# Fast (small metadata)
+pkgsize nanoid  # ~0.3s
+
+# Slow (huge metadata)
+pkgsize typescript  # ~5s (100+ versions)
+```
+
+**Solution:**
+```bash
+# Use --no-tarball to skip tarball size fetch (faster)
+pkgsize typescript --no-tarball
+
+# Or cache results
+pkgsize typescript --cache  # Subsequent runs: ~0.1s
+```
+
+---
+
+### Issue: Colors Not Showing in CI
+
+**Problem:** Output is monochrome in GitHub Actions/GitLab CI.
+
+**Solution:**
+```yaml
+# Force color output
+- run: npx pkgsize react --color
+
+# Or use environment variable
+- run: FORCE_COLOR=1 npx pkgsize react
+
+# Or disable colors for cleaner logs
+- run: npx pkgsize react --no-color
+```
+
+---
+
+### Issue: Comparing Too Many Packages
+
+**Error:**
+```
+❌ Error: Too many packages. Maximum: 20
+```
+
+**Solution:**
+```bash
+# Split into batches
+pkgsize lodash ramda underscore
+pkgsize axios got node-fetch
+
+# Or use JSON mode and process separately
+pkgsize lodash --json > lodash.json
+pkgsize ramda --json > ramda.json
+jq -s 'add' lodash.json ramda.json
+```
+
+---
+
+### Issue: Wrong Version Checked
+
+**Problem:** `pkgsize` checks latest, but you need a specific version.
+
+**Current behavior:**
+```bash
+pkgsize react  # Always checks latest (currently 19.x)
+```
+
+**Workaround (not yet supported):**
+```bash
+# Feature request: Version pinning
+# pkgsize react@18.2.0  # Coming soon!
+
+# For now: Check npm manually
+npm view react@18.2.0 dist.unpackedSize
+```
+
+---
+
+## 🎓 Advanced Usage
+
+### Programmatic API
+
+Use `pkgsize` as a Node.js library:
+
+#### Basic Usage
+
+```typescript
+import { fetchPackageInfo, formatSize, comparePackages } from 'pkgsize';
+
+// Check single package
+const info = await fetchPackageInfo('lodash');
+
+console.log(`📦 ${info.name}@${info.version}`);
+console.log(`📏 Size: ${formatSize(info.unpackedSize)}`);
+console.log(`📦 Tarball: ${formatSize(info.tarballSize)}`);
+console.log(`🔗 Dependencies: ${info.dependencyCount}`);
+```
+
+**Output:**
+```
+📦 lodash@4.17.21
+📏 Size: 1.4 MB
+📦 Tarball: 547 KB
+🔗 Dependencies: 0
+```
+
+---
+
+#### Compare Multiple Packages
+
+```typescript
+import { comparePackages, formatComparison } from 'pkgsize';
+
+const packages = ['moment', 'dayjs', 'date-fns'];
+const comparison = await comparePackages(packages);
+
+console.log(formatComparison(comparison));
+
+// Find smallest
+const smallest = comparison.reduce((min, pkg) => 
+  pkg.unpackedSize < min.unpackedSize ? pkg : min
+);
+
+console.log(`\n💡 Recommended: ${smallest.name}`);
+console.log(`   Savings: ${((1 - smallest.unpackedSize / comparison[0].unpackedSize) * 100).toFixed(1)}%`);
+```
+
+---
+
+#### Custom Formatting
+
+```typescript
+import { fetchPackageInfo } from 'pkgsize';
+
+async function customReport(packageName: string) {
+  const info = await fetchPackageInfo(packageName);
+  
+  // Calculate mobile download times
+  const downloadTime3G = (info.tarballSize / 1024 / 1024 / 1) * 1000; // 1 Mbps
+  const downloadTime4G = (info.tarballSize / 1024 / 1024 / 10) * 1000; // 10 Mbps
+  
+  return {
+    package: info.name,
+    version: info.version,
+    unpackedMB: (info.unpackedSize / 1024 / 1024).toFixed(2),
+    tarballMB: (info.tarballSize / 1024 / 1024).toFixed(2),
+    download3G: `${downloadTime3G.toFixed(0)}ms`,
+    download4G: `${downloadTime4G.toFixed(0)}ms`,
+    dependencies: info.dependencyCount
+  };
+}
+
+// Usage
+const report = await customReport('react');
+console.table([report]);
+```
+
+**Output:**
+```
+┌─────────┬───────┬────────────┬───────────┬────────────┬────────────┬──────────────┐
+│ (index) │ package │ version   │ unpackedMB │ tarballMB │ download3G │ download4G │ dependencies │
+├─────────┼───────┼────────────┼───────────┼────────────┼────────────┼──────────────┤
+│    0    │ 'react' │ '19.2.4' │   '0.17'   │  '0.05'   │   '447ms'  │    '44ms'   │      0       │
+└─────────┴───────┴────────────┴───────────┴────────────┴────────────┴──────────────┘
+```
+
+---
+
+#### Bulk Analysis
+
+```typescript
+import { fetchPackageInfo } from 'pkgsize';
+import * as fs from 'fs';
+
+async function analyzeProject(packageJsonPath: string) {
+  const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+  const deps = Object.keys(pkg.dependencies || {});
+  
+  const results = await Promise.all(
+    deps.map(async name => {
+      try {
+        return await fetchPackageInfo(name);
+      } catch (err) {
+        return { name, error: err.message };
+      }
+    })
+  );
+  
+  // Filter out errors
+  const valid = results.filter(r => !r.error);
+  
+  // Calculate totals
+  const totalSize = valid.reduce((sum, pkg) => sum + pkg.unpackedSize, 0);
+  const totalDeps = valid.reduce((sum, pkg) => sum + pkg.dependencyCount, 0);
+  
+  console.log(`📊 Project Analysis`);
+  console.log(`─────────────────────`);
+  console.log(`Total packages: ${valid.length}`);
+  console.log(`Total unpacked: ${(totalSize / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`Total dependencies: ${totalDeps}`);
+  console.log(``);
+  
+  // Top 5 largest
+  const sorted = valid.sort((a, b) => b.unpackedSize - a.unpackedSize);
+  console.log(`🔴 Largest packages:`);
+  sorted.slice(0, 5).forEach((pkg, i) => {
+    const sizeMB = (pkg.unpackedSize / 1024 / 1024).toFixed(2);
+    console.log(`${i + 1}. ${pkg.name}: ${sizeMB} MB`);
+  });
+}
+
+// Usage
+analyzeProject('./package.json');
+```
+
+---
+
+#### CI Integration Helper
+
+```typescript
+import { fetchPackageInfo } from 'pkgsize';
+
+interface SizeLimits {
+  [key: string]: number;  // Max size in bytes
+}
+
+async function enforceSize Limits(limits: SizeLimits): Promise<void> {
+  const failures: string[] = [];
+  
+  for (const [packageName, maxSize] of Object.entries(limits)) {
+    const info = await fetchPackageInfo(packageName);
+    
+    if (info.unpackedSize > maxSize) {
+      const actual = (info.unpackedSize / 1024).toFixed(1);
+      const limit = (maxSize / 1024).toFixed(1);
+      failures.push(
+        `${packageName}: ${actual} KB (limit: ${limit} KB)`
+      );
+    }
+  }
+  
+  if (failures.length > 0) {
+    console.error('❌ Size limit violations:');
+    failures.forEach(f => console.error(`  - ${f}`));
+    process.exit(1);
+  }
+  
+  console.log('✅ All packages within size limits');
+}
+
+// Usage
+enforceSizeLimits({
+  'lodash': 1024 * 1024,      // 1 MB max
+  'moment': 2 * 1024 * 1024,  // 2 MB max
+  'react': 500 * 1024         // 500 KB max
+});
+```
+
+---
+
+### Integration with Build Tools
+
+#### Webpack Plugin
+
+```javascript
+// webpack-pkgsize-plugin.js
+const { fetchPackageInfo } = require('pkgsize');
+
+class PkgSizePlugin {
+  apply(compiler) {
+    compiler.hooks.beforeCompile.tapAsync('PkgSizePlugin', async (params, callback) => {
+      console.log('🔍 Checking dependency sizes...\n');
+      
+      const pkg = require('./package.json');
+      const deps = Object.keys(pkg.dependencies || {});
+      
+      const large = [];
+      
+      for (const dep of deps) {
+        const info = await fetchPackageInfo(dep);
+        const sizeMB = info.unpackedSize / 1024 / 1024;
+        
+        if (sizeMB > 1) {
+          large.push({ name: dep, size: sizeMB });
+        }
+      }
+      
+      if (large.length > 0) {
+        console.warn('⚠️  Large dependencies detected:');
+        large.forEach(({ name, size }) => {
+          console.warn(`   - ${name}: ${size.toFixed(2)} MB`);
+        });
+        console.warn('   Consider code splitting or lazy loading.\n');
+      }
+      
+      callback();
+    });
+  }
+}
+
+module.exports = PkgSizePlugin;
+```
+
+```javascript
+// webpack.config.js
+const PkgSizePlugin = require('./webpack-pkgsize-plugin');
+
+module.exports = {
+  // ... other config
+  plugins: [
+    new PkgSizePlugin()
+  ]
+};
+```
+
+---
+
+#### Vite Plugin
+
+```typescript
+// vite-plugin-pkgsize.ts
+import { Plugin } from 'vite';
+import { fetchPackageInfo } from 'pkgsize';
+
+export function pkgsizePlugin(): Plugin {
+  return {
+    name: 'vite-plugin-pkgsize',
+    
+    async buildStart() {
+      const pkg = require('./package.json');
+      const deps = Object.keys(pkg.dependencies || {});
+      
+      const results = await Promise.all(
+        deps.map(name => fetchPackageInfo(name))
+      );
+      
+      const total = results.reduce((sum, r) => sum + r.unpackedSize, 0);
+      const totalMB = (total / 1024 / 1024).toFixed(2);
+      
+      console.log(`📦 Total dependency size: ${totalMB} MB`);
+      
+      if (total > 10 * 1024 * 1024) {
+        console.warn('⚠️  Dependencies exceed 10 MB. Consider optimization.');
+      }
+    }
+  };
+}
+```
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { pkgsizePlugin } from './vite-plugin-pkgsize';
+
+export default defineConfig({
+  plugins: [pkgsizePlugin()]
+});
+```
+
+---
+
+### Custom Reporters
+
+#### Markdown Report Generator
+
+```typescript
+import { fetchPackageInfo } from 'pkgsize';
+import * as fs from 'fs';
+
+async function generateMarkdownReport(packages: string[], outputPath: string) {
+  const results = await Promise.all(
+    packages.map(name => fetchPackageInfo(name))
+  );
+  
+  let markdown = '# Package Size Report\n\n';
+  markdown += `**Generated:** ${new Date().toISOString()}\n\n`;
+  markdown += `| Package | Version | Unpacked | Tarball | Dependencies |\n`;
+  markdown += `|---------|---------|----------|---------|-------------|\n`;
+  
+  results.forEach(pkg => {
+    const unpacked = (pkg.unpackedSize / 1024).toFixed(1);
+    const tarball = (pkg.tarballSize / 1024).toFixed(1);
+    markdown += `| ${pkg.name} | ${pkg.version} | ${unpacked} KB | ${tarball} KB | ${pkg.dependencyCount} |\n`;
+  });
+  
+  markdown += '\n## Summary\n\n';
+  const total = results.reduce((sum, p) => sum + p.unpackedSize, 0);
+  markdown += `**Total Size:** ${(total / 1024 / 1024).toFixed(2)} MB\n`;
+  
+  fs.writeFileSync(outputPath, markdown);
+  console.log(`✅ Report saved to ${outputPath}`);
+}
+
+// Usage
+const pkg = require('./package.json');
+const deps = Object.keys(pkg.dependencies || {});
+generateMarkdownReport(deps, 'PACKAGE-SIZES.md');
+```
+
+---
+
+#### HTML Dashboard
+
+```typescript
+import { fetchPackageInfo } from 'pkgsize';
+import * as fs from 'fs';
+
+async function generateHTMLDashboard(packages: string[], outputPath: string) {
+  const results = await Promise.all(
+    packages.map(name => fetchPackageInfo(name))
+  );
+  
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Package Size Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background: #4CAF50; color: white; }
+    .large { background: #ffcccc; }
+    .medium { background: #ffffcc; }
+    .small { background: #ccffcc; }
+  </style>
+</head>
+<body>
+  <h1>📦 Package Size Dashboard</h1>
+  <p>Generated: ${new Date().toLocaleString()}</p>
+  
+  <table>
+    <tr>
+      <th>Package</th>
+      <th>Version</th>
+      <th>Unpacked</th>
+      <th>Tarball</th>
+      <th>Dependencies</th>
+    </tr>
+    ${results.map(pkg => {
+      const sizeMB = pkg.unpackedSize / 1024 / 1024;
+      const rowClass = sizeMB > 1 ? 'large' : sizeMB > 0.5 ? 'medium' : 'small';
+      return `
+        <tr class="${rowClass}">
+          <td>${pkg.name}</td>
+          <td>${pkg.version}</td>
+          <td>${(pkg.unpackedSize / 1024).toFixed(1)} KB</td>
+          <td>${(pkg.tarballSize / 1024).toFixed(1)} KB</td>
+          <td>${pkg.dependencyCount}</td>
+        </tr>
+      `;
+    }).join('')}
+  </table>
+  
+  <h2>Summary</h2>
+  <p><strong>Total Size:</strong> ${(results.reduce((sum, p) => sum + p.unpackedSize, 0) / 1024 / 1024).toFixed(2)} MB</p>
+</body>
+</html>
+  `;
+  
+  fs.writeFileSync(outputPath, html);
+  console.log(`✅ Dashboard saved to ${outputPath}`);
+}
+
+// Usage
+const pkg = require('./package.json');
+const deps = Object.keys(pkg.dependencies || {});
+generateHTMLDashboard(deps, 'size-dashboard.html');
+```
+
+---
+
+## ❓ FAQ
+
+### Q: Does this show the actual bundle size?
+
+**No.** `pkgsize` shows:
+- ✅ **Unpacked size** - Raw files in node_modules
+- ✅ **Tarball size** - npm download size
+
+**Not shown:**
+- ❌ **Bundle size** - After webpack/vite/rollup minification
+- ❌ **Gzipped size** - What users actually download
+- ❌ **Tree-shaken size** - After unused code removal
+
+**To check bundle size, use:**
+```bash
+# Webpack Bundle Analyzer
+npm install --save-dev webpack-bundle-analyzer
+
+# Vite
+npm run build
+# Check dist/ folder size
+
+# Or use bundlephobia.com
+open https://bundlephobia.com/package/lodash
+```
+
+### Q: Why is tarball smaller than unpacked?
+
+**Tarball is compressed** (gzip). Example:
+```
+Unpacked: 1.4 MB (raw files)
+Tarball:  547 KB (compressed for npm download)
+```
+
+When you `npm install`, npm downloads the tarball, then unpacks it to `node_modules`.
+
+### Q: Can I check multiple versions?
+
+**Not yet.** Currently only checks latest version.
+
+**Workaround:**
+```bash
+# Check specific version manually
+npm view react@18.2.0 dist.unpackedSize
+npm view react@19.0.0 dist.unpackedSize
+```
+
+**Coming soon:**
+```bash
+# Planned feature
+pkgsize react@18.2.0 react@19.0.0
+```
+
+### Q: Does this work for private packages?
+
+**No.** Only works with **public npm registry** packages.
+
+**Alternative for private packages:**
+```bash
+# After installing
+npm install @mycompany/private-pkg
+
+# Check size
+du -sh node_modules/@mycompany/private-pkg
+```
+
+### Q: Why are dependencies not included in size?
+
+**By design.** `pkgsize` shows **direct package size only**.
+
+**Example:**
+```
+express (220 KB) + 31 dependencies (~5 MB total)
+```
+
+`pkgsize` reports 220 KB, not 5 MB.
+
+**To see total:**
+```bash
+npm install express
+du -sh node_modules/
+```
+
+### Q: Can I use this offline?
+
+**Not yet.** Requires internet to query npm registry.
+
+**Coming soon:**
+```bash
+# Cache results for offline use
+pkgsize lodash --cache
+```
+
+### Q: How accurate is this?
+
+**Very accurate** for latest versions. Data comes directly from npm registry metadata.
+
+**Note:** Sizes may vary slightly after installation due to:
+- OS-specific files
+- Optional dependencies
+- Post-install scripts
+
+### Q: Can I compare across registries?
+
+**Not currently.** Uses npm registry only.
+
+**Workaround:**
+```bash
+# Check yarn registry
+curl https://registry.yarnpkg.com/react | jq .dist.unpackedSize
+
+# Check custom registry
+curl https://registry.company.com/my-pkg | jq .dist.unpackedSize
+```
+
+### Q: Why is this better than bundlephobia?
+
+**Different use cases:**
+
+| Feature | pkgsize | bundlephobia.com |
+|---------|---------|------------------|
+| CLI tool | ✅ Yes | ❌ No (web only) |
+| Bundle size | ❌ No | ✅ Yes |
+| Gzip size | ❌ No | ✅ Yes |
+| Tree-shaking | ❌ No | ✅ Yes |
+| Offline mode | 🔜 Coming | ❌ No |
+| Compare packages | ✅ Yes | ❌ No |
+| CI integration | ✅ Easy | ⚠️ API only |
+
+**Use pkgsize for:**
+- Quick CLI checks
+- CI/CD integration
+- Comparing alternatives
+- Pre-install decisions
+
+**Use bundlephobia for:**
+- Actual bundle impact
+- Frontend optimization
+- Tree-shaking analysis
+
+### Q: How do I check peer dependencies?
+
+**pkgsize doesn't resolve peer deps.** You need to check manually:
+
+```bash
+# Check peer dependencies
+npm info react peerDependencies
+
+# Then check each one
+pkgsize react-dom
+```
+
+---
+
+## 🔄 Comparison with Alternatives
+
+| Tool | Speed | Accuracy | Features | Dependencies |
+|------|-------|----------|----------|--------------|
+| **pkgsize** | ⚡️ Fast | ✅ Registry | CLI, JSON, Compare | 0 |
+| npm-view | 🐢 Slow | ✅ Registry | Basic info | npm |
+| bundlephobia | 🐢 Very Slow | ✅✅ Build | Bundle size, Gzip | Web |
+| package-size | ⚡️ Fast | ⚠️ Estimate | CLI | Many |
+| cost-of-modules | 🐢 Medium | ✅✅ Installed | Deep analysis | Many |
+
+**Why pkgsize?**
+- ✅ **Zero dependencies** - Won't bloat your project
+- ✅ **Registry-based** - No installation required
+- ✅ **Compare mode** - Side-by-side comparison
+- ✅ **JSON output** - Easy CI integration
+- ✅ **Fast** - Direct API calls, no build step
+
+---
+
+## 🛣️ Roadmap
+
+- [ ] **Version comparison** - `pkgsize react@18 react@19`
+- [ ] **Offline cache** - Save results for offline use
+- [ ] **Dependency tree size** - Include transitive deps
+- [ ] **Historic tracking** - Size changes over time
+- [ ] **Badge generation** - Size badges for README
+- [ ] **GitHub Action** - Automated PR size checks
+- [ ] **VS Code extension** - Check size on hover
+
+---
+
+## 🙏 Acknowledgments
+
+Inspired by:
+- [bundlephobia](https://bundlephobia.com/) - Bundle size analysis
+- [package-size](https://github.com/egoist/package-size) - CLI size checker
+- [cost-of-modules](https://github.com/siddharthkp/cost-of-modules) - Deep analysis
+
+---
+
 **Made with ❤️ by [muin-company](https://github.com/muin-company)**  
 *Because smaller is better.*
